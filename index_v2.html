@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#313338">
+<title>Daily Words</title>
+<style>
+:root{
+  --bg:#313338; --bg-deep:#1e1f22; --panel:#2b2d31; --raised:#383a40;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --text:#f2f3f5; --text-2:#dbdee1; --muted:#949ba4; --faint:#6d6f78;
+  --good:#23a55a; --bad:#f23f43;
+  --r-device:48px; --pad:16px; --r-card:28px; --face-pad:20px; --r-inner:12px;
+  --ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);
+  --font:-apple-system,"SF Pro Text","SF Pro","Segoe UI","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font);color:var(--text-2);background:var(--bg);display:flex;align-items:center;justify-content:center;min-height:100dvh;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid rgba(255,255,255,.7);outline-offset:3px}
+
+/* ---------- device frame ---------- */
+.device{position:relative;width:100%;height:100dvh;overflow:hidden;display:flex;flex-direction:column;
+  background:
+    radial-gradient(70% 40% at 15% 0%,rgba(255,255,255,.06),transparent 70%),
+    radial-gradient(60% 40% at 90% 100%,rgba(255,255,255,.04),transparent 70%),
+    var(--bg);}
+@media (min-width:520px){
+  body{background:#111214}
+  .device{width:390px;height:min(844px,calc(100dvh - 48px));border-radius:var(--r-device);
+    box-shadow:0 0 0 10px #000,0 0 0 11px #2b2d31,0 40px 90px rgba(0,0,0,.6)}
+}
+
+/* ---------- glass & light ---------- */
+.glass{position:relative;
+  background:linear-gradient(140deg,rgba(255,255,255,.10),rgba(255,255,255,.035));
+  -webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%);
+  border:1px solid var(--line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 10px 30px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.25)}
+.surface{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);
+  box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.glow{position:relative;isolation:isolate}
+.glow::before,.glow::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .35s var(--ease);z-index:2}
+.glow::before{background:radial-gradient(150px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.12),rgba(255,255,255,0) 65%)}
+.glow::after{padding:1px;
+  background:radial-gradient(110px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.75),rgba(255,255,255,0) 70%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}
+.glow.hot::before,.glow.hot::after{opacity:1}
+.press{transition:transform .35s var(--spring),filter .2s}
+.press:active{transform:scale(.95);filter:brightness(1.12)}
+
+/* ---------- panes ---------- */
+.viewport{flex:1;position:relative;overflow:hidden;touch-action:pan-y}
+.track{display:flex;width:300%;height:100%;transition:transform .45s var(--ease);will-change:transform}
+.track.dragging{transition:none}
+.pane{width:calc(100%/3);height:100%;overflow-y:auto;padding:calc(18px + env(safe-area-inset-top)) var(--pad) 130px;user-select:none;-webkit-user-select:none;scrollbar-width:none}
+.pane::-webkit-scrollbar{display:none}
+.sec-title{font-size:13px;font-weight:700;color:var(--muted);margin:4px 6px 12px}
+.icon-btn{width:44px;height:44px;border-radius:999px;display:grid;place-items:center;color:var(--text-2);flex:none}
+.icon-btn svg{width:20px;height:20px}
+.btn{height:50px;padding:0 20px;border-radius:999px;font-weight:800;font-size:15px;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:var(--text-2)}
+.btn.primary{color:var(--bg-deep);background:var(--text);box-shadow:inset 0 1px 0 #fff,0 8px 22px rgba(0,0,0,.35)}
+.btn:disabled{opacity:.35;pointer-events:none}
+.btn.full{width:100%}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stack{display:grid;gap:10px}
+.link{display:block;margin:16px auto 0;font-size:13px;color:var(--muted);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700;background:var(--bg-deep);color:var(--text-2);border:1px solid var(--line)}
+.chip small{font-weight:600;color:var(--muted);font-size:11px}
+.chip.ghost{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.stars{color:var(--text);letter-spacing:1px;margin-right:5px}
+
+/* ---------- set list ---------- */
+.set-list{display:grid;gap:12px}
+.set-item{display:block;width:100%;text-align:left;padding:18px 20px;border-radius:24px}
+.set-head{display:flex;justify-content:space-between;align-items:baseline}
+.set-head b{font-size:20px;color:var(--text);font-weight:800;letter-spacing:-.01em}
+.set-head span{font-size:13px;color:var(--muted);font-weight:700}
+.set-words{margin-top:6px;font-size:14px;color:var(--muted);line-height:1.5}
+.mini-bar{margin-top:14px;height:6px;border-radius:999px;background:var(--bg-deep);overflow:hidden}
+.mini-bar i{display:block;height:100%;border-radius:999px;background:var(--text-2);transition:width .5s var(--ease)}
+
+/* ---------- study ---------- */
+.study-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.study-title{text-align:center}
+.study-title b{display:block;font-size:17px;color:var(--text);font-weight:800}
+.study-title span{font-size:12px;color:var(--muted);font-weight:700}
+.icon-spacer{width:44px}
+.dots{display:flex;justify-content:center;gap:6px;margin:0 0 14px}
+.dots i{width:7px;height:7px;border-radius:999px;background:var(--raised);transition:width .3s var(--ease),background .3s}
+.dots i.know{background:var(--muted)}
+.dots i.dont{background:rgba(242,63,67,.6)}
+.dots i.on{width:22px;background:var(--text)}
+.stage-wrap{position:relative;padding:0 18px}
+.edge{position:absolute;top:50%;width:18px;display:grid;place-items:center;color:var(--faint);pointer-events:none;transform:translateY(-50%);transition:opacity .3s}
+.edge svg{width:16px;height:16px}
+.edge.left{left:0;animation:nudgeL 2.4s ease-in-out infinite}
+.edge.right{right:0;animation:nudgeR 2.4s ease-in-out infinite}
+.edge.off{opacity:0}
+@keyframes nudgeL{0%,70%,100%{transform:translate(0,-50%)}85%{transform:translate(-3px,-50%)}}
+@keyframes nudgeR{0%,70%,100%{transform:translate(0,-50%)}85%{transform:translate(3px,-50%)}}
+.stage{perspective:1400px;touch-action:pan-y;transition:transform .35s var(--spring),opacity .25s}
+.stage.dragging{transition:none}
+.flashcard{position:relative;height:380px;transform-style:preserve-3d;transition:transform .6s var(--ease);cursor:pointer;border-radius:var(--r-card)}
+.flashcard.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;padding:var(--face-pad);display:flex;flex-direction:column;overflow:hidden}
+.face.back{transform:rotateY(180deg)}
+.badge{align-self:flex-start;font-size:12px;font-weight:700;padding:6px 11px;border-radius:999px;background:var(--bg-deep);color:var(--text-2);border:1px solid var(--line)}
+.word{font-size:44px;font-weight:800;letter-spacing:-.03em;margin:auto 0 4px;text-align:center;color:var(--text)}
+.pos{text-align:center;color:var(--muted);font-size:14px}
+.front-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}
+.speak{margin:16px auto 0;width:46px;height:46px;border-radius:999px;display:grid;place-items:center;background:var(--bg-deep);border:1px solid var(--line);color:var(--text-2)}
+.speak svg{width:20px;height:20px}
+.hint{margin-top:auto;text-align:center;font-size:12px;color:var(--faint)}
+.meaning{font-size:25px;font-weight:800;margin:12px 0 2px;letter-spacing:-.02em;color:var(--text)}
+.sub{font-size:13px;color:var(--muted)}
+.label{font-size:12px;color:var(--muted);font-weight:700;margin:14px 0 7px}
+.ex{font-size:16px;line-height:1.55;margin:0;padding:12px 14px;background:var(--bg-deep);border-radius:var(--r-inner);color:var(--text-2)}
+mark{background:linear-gradient(transparent 60%,rgba(255,255,255,.2) 60%);color:var(--text);font-weight:800;padding:0 1px}
+.none{font-size:13px;color:var(--faint)}
+.study-actions{margin-top:16px}
+
+/* ---------- set done ---------- */
+.done{padding:24px var(--face-pad)}
+.done-score{text-align:center}
+.done-score b{font-size:54px;font-weight:800;color:var(--text);letter-spacing:-.03em}
+.done-score span{font-size:22px;color:var(--muted);font-weight:700}
+.done-score p{margin:2px 0 18px;color:var(--muted);font-size:14px}
+.rows{display:grid;gap:8px;margin-bottom:20px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-radius:14px;background:var(--bg-deep)}
+.row .w{font-weight:800;color:var(--text)}
+.row .m{font-size:12px;color:var(--muted);margin-top:1px}
+.tag{flex:none;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px}
+.tag.know{background:rgba(35,165,90,.15);color:#57d38a}
+.tag.dont{background:rgba(242,63,67,.15);color:#ff7b7e}
+.tag.none{background:var(--raised);color:var(--muted)}
+
+/* ---------- quiz ---------- */
+.intro{padding:30px var(--face-pad);text-align:center}
+.intro .big{font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin:4px 0 8px}
+.intro p{margin:0 0 6px;color:var(--muted);font-size:14px;line-height:1.6}
+.intro .facts{display:flex;justify-content:center;gap:8px;margin:18px 0 26px;flex-wrap:wrap}
+.progress{height:10px;border-radius:999px;overflow:hidden;margin:0 2px 14px;padding:2px}
+.bar{height:100%;width:0;border-radius:999px;background:var(--text-2);transition:width .45s var(--ease)}
+.q-card{padding:var(--face-pad)}
+.q-meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);font-weight:700}
+.q-meta button{color:var(--faint);font-weight:700;font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.q-sentence{font-size:21px;line-height:1.6;font-weight:600;margin:16px 0 4px;color:var(--text)}
+.q-trans{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 16px}
+.blank{display:inline-block;min-width:96px;border-bottom:3px solid var(--faint);text-align:center;color:var(--text);padding:0 4px;line-height:1.3}
+.blank.good{color:#57d38a;border-color:var(--good)}
+.blank.bad{color:#ff7b7e;border-color:var(--bad)}
+.answer-row{display:flex;gap:10px;margin-top:16px}
+.input{flex:1;min-width:0;height:52px;border-radius:999px;border:1.5px solid #3f4147;padding:0 18px;font-size:18px;font-family:inherit;background:var(--bg-deep);color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s;user-select:text;-webkit-user-select:text}
+.input::placeholder{color:var(--faint)}
+.input:focus{border-color:var(--text-2);box-shadow:0 0 0 4px rgba(255,255,255,.08)}
+.input.good{border-color:var(--good);box-shadow:0 0 0 4px rgba(35,165,90,.15)}
+.input.bad{border-color:var(--bad);box-shadow:0 0 0 4px rgba(242,63,67,.15)}
+.feedback{margin-top:14px;padding:16px;border-radius:16px;display:none}
+.feedback.show{display:block;animation:pop .35s var(--spring)}
+.feedback.good{background:rgba(35,165,90,.10);box-shadow:inset 0 0 0 1px rgba(35,165,90,.45),0 10px 30px rgba(35,165,90,.12)}
+.feedback.bad{background:rgba(242,63,67,.10);box-shadow:inset 0 0 0 1px rgba(242,63,67,.45),0 10px 30px rgba(242,63,67,.12)}
+.fb-title{font-weight:800;font-size:16px;margin-bottom:10px;color:var(--text)}
+.fb-line{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.25);margin-bottom:10px}
+.fb-line p{margin:0;flex:1;font-size:15px;line-height:1.5;color:var(--text-2)}
+.fb-line b{color:var(--text)}
+.say{flex:none;width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.08);color:var(--text)}
+.say svg{width:17px;height:17px}
+.fb-note{font-size:14px;line-height:1.55;color:var(--text-2)}
+.fb-note b{color:var(--text)}
+.result{padding:28px var(--face-pad)}
+.score{text-align:center;font-size:58px;font-weight:800;letter-spacing:-.03em;color:var(--text)}
+.score span{font-size:24px;color:var(--muted)}
+.result>p{text-align:center;color:var(--muted);line-height:1.5;margin:4px 0 20px;font-size:14px}
+.result .row s{color:#ff7b7e}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.shake{animation:shake .3s}
+
+/* ---------- review ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:14px;border-radius:24px;text-align:center}
+.stats b{display:block;font-size:22px;font-weight:800;color:var(--text)}
+.stats span{font-size:12px;color:var(--muted);font-weight:600}
+.list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.item{padding:14px 16px;border-radius:20px;display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:left;width:100%}
+.item .w{font-weight:800;font-size:18px;color:var(--text)}
+.item .w small{font-size:11px;font-weight:700;color:var(--muted);margin-left:6px}
+.item .m{font-size:13px;color:var(--muted);margin-top:2px}
+.item .d{font-size:13px;margin-top:6px;color:var(--text-2)}
+.item s{color:#ff7b7e}
+.count{flex:none;min-width:38px;height:28px;padding:0 8px;border-radius:999px;background:rgba(242,63,67,.15);color:#ff7b7e;font-weight:800;font-size:13px;display:grid;place-items:center}
+.empty{text-align:center;padding:36px 20px;color:var(--muted);line-height:1.6;margin-top:14px;font-size:14px}
+
+/* ---------- tab bar ---------- */
+.tabbar{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  width:calc(100% - 40px);max-width:350px;height:66px;border-radius:999px;padding:6px;
+  display:grid;grid-template-columns:repeat(3,1fr);z-index:10;touch-action:none;
+  background:linear-gradient(140deg,rgba(64,66,73,.62),rgba(43,45,49,.52))}
+.lens{position:absolute;top:6px;left:6px;bottom:6px;width:calc((100% - 12px)/3);border-radius:999px;
+  background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(255,255,255,.07));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 14px rgba(0,0,0,.3);
+  transition:transform .45s var(--spring);z-index:0}
+.lens.dragging{transition:none}
+.tab{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:11px;font-weight:700;color:var(--muted);border-radius:999px;transition:color .3s,transform .35s var(--spring)}
+.tab svg{width:22px;height:22px}
+.tab[aria-selected="true"]{color:var(--text)}
+.tab:active{transform:scale(.92)}
+.dot{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;display:none;place-items:center}
+.dot.on{display:grid}
+
+/* ---------- toast ---------- */
+.toast{position:absolute;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translate(-50%,-14px);opacity:0;pointer-events:none;
+  padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;color:var(--text);z-index:20;transition:opacity .3s var(--ease),transform .3s var(--ease);white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="device" id="device">
+
+  <main class="viewport" id="viewport">
+    <div class="track" id="track">
+      <section class="pane" id="pane0" role="tabpanel" aria-labelledby="tab0"><div id="flashBody"></div></section>
+      <section class="pane" id="pane1" role="tabpanel" aria-labelledby="tab1"><div id="quizBody"></div></section>
+      <section class="pane" id="pane2" role="tabpanel" aria-labelledby="tab2"><div id="reviewBody"></div></section>
+    </div>
+  </main>
+
+  <nav class="tabbar glass glow" id="tabbar" role="tablist" aria-label="학습 메뉴">
+    <div class="lens" id="lens" aria-hidden="true"></div>
+    <button class="tab" id="tab0" role="tab" aria-controls="pane0" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="6" width="13" height="15" rx="3"/><path d="M8 3h10a3 3 0 0 1 3 3v12"/></svg>
+      단어 카드
+    </button>
+    <button class="tab" id="tab1" role="tab" aria-controls="pane1" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M7 10h4M7 14h2"/><path d="M13 15h5"/></svg>
+      빈칸 퀴즈
+    </button>
+    <button class="tab" id="tab2" role="tab" aria-controls="pane2" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+      복습
+      <span class="dot" id="reviewDot">0</span>
+    </button>
+  </nav>
+
+  <div class="toast glass" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+/* =========================================================
+   WORD DATA — keep all word data in this one array.
+   Later, the full 3,000-word list can replace or extend it.
+   Every 5 words in order form one flashcard set (4 sets).
+   level: 1 = ★ (초등 권장 *), 2 = ★★ (중·고 공통 **), 3 = ★★★ (표시 없음, 고등 선택)
+   ========================================================= */
+const WORDS = [
+  // Set 1
+  {word:"relax", level:2, pos:"동사", meaning:"휴식을 취하다, 긴장을 풀다", family:[], variation:[],
+   ex:"I relax by listening to music after school.", exForm:"relax",
+   quiz:{s:"Take a deep breath and try to ___.", tr:"심호흡을 하고 긴장을 풀어 보세요.", a:["relax"], note:"try to 뒤에는 동사원형이 와서 relax를 그대로 씀."}},
+  {word:"prepare", level:2, pos:"동사", meaning:"준비하다", family:[], variation:[],
+   ex:"My mom is preparing dinner in the kitchen.", exForm:"preparing",
+   quiz:{s:"I am ___ for the English test this week.", tr:"나는 이번 주 영어 시험을 준비하고 있다.", a:["preparing"], note:"am + 동사-ing 진행형. prepare는 e를 빼고 -ing를 붙여 preparing이 됨."}},
+  {word:"exercise", level:1, pos:"동사·명사", meaning:"운동하다, 운동", family:[], variation:[],
+   ex:"I exercise in the park every morning.", exForm:"exercise",
+   quiz:{s:"My dad ___ every evening to stay healthy.", tr:"우리 아빠는 건강을 유지하려고 매일 저녁 운동하신다.", a:["exercises"], note:"주어 My dad가 3인칭 단수이고 현재의 습관이라 exercises."}},
+  {word:"communicate", level:2, pos:"동사", meaning:"의사소통하다", family:[{w:"communication", pos:"명사"}], variation:[],
+   ex:"We communicate with our friends by text message.", exForm:"communicate",
+   quiz:{s:"Good ___ is important between friends.", tr:"친구 사이에는 좋은 의사소통이 중요하다.", a:["communication"], note:"Good(형용사) 뒤 주어 자리라 명사형 communication이 필요함."}},
+  {word:"borrow", level:1, pos:"동사", meaning:"빌리다", family:[], variation:[],
+   ex:"Can I borrow your pen?", exForm:"borrow",
+   quiz:{s:"I ___ a book from the library yesterday.", tr:"나는 어제 도서관에서 책을 빌렸다.", a:["borrowed"], note:"yesterday가 있어 과거형 borrowed."}},
+  // Set 2
+  {word:"health", level:2, pos:"명사", meaning:"건강", family:[{w:"healthy", pos:"형용사"}], variation:[],
+   ex:"Sleep is important for your health.", exForm:"health",
+   quiz:{s:"Eating vegetables keeps you ___.", tr:"채소를 먹으면 건강을 유지할 수 있다.", a:["healthy"], note:"keep + 사람 + 형용사(~한 상태로 유지하다) 구조라 형용사형 healthy."}},
+  {word:"neighbor", level:2, pos:"명사", meaning:"이웃", family:[], variation:["neighbour"],
+   ex:"My neighbor has a cute dog.", exForm:"neighbor",
+   quiz:{s:"Our new ___ moved in next door yesterday.", tr:"새 이웃이 어제 옆집으로 이사 왔다.", a:["neighbor","neighbour"], note:"미국식 neighbor, 영국식 neighbour 모두 정답."}},
+  {word:"recipe", level:2, pos:"명사", meaning:"조리법", family:[], variation:[],
+   ex:"This recipe is easy to follow.", exForm:"recipe",
+   quiz:{s:"Grandma gave me her ___ for kimchi stew.", tr:"할머니께서 김치찌개 조리법을 알려 주셨다.", a:["recipe"], note:"her 뒤 명사 자리. 음식을 만드는 방법을 나타냄."}},
+  {word:"schedule", level:2, pos:"명사", meaning:"일정", family:[], variation:[],
+   ex:"I check my schedule every night.", exForm:"schedule",
+   quiz:{s:"Let me check my ___ for this weekend.", tr:"이번 주말 일정을 확인해 볼게.", a:["schedule"], note:"my 뒤 명사 자리. 주말 계획을 확인하는 상황."}},
+  {word:"hunger", level:2, pos:"명사", meaning:"배고픔", family:[{w:"hungry", pos:"형용사"}], variation:[],
+   ex:"The baby cried from hunger.", exForm:"hunger",
+   quiz:{s:"I skipped lunch, so I'm very ___ now.", tr:"점심을 걸러서 지금 무척 배가 고프다.", a:["hungry"], note:"be동사(am) 뒤 상태를 나타내는 형용사 hungry. hunger는 명사라 이 자리에 못 씀."}},
+  // Set 3
+  {word:"recommend", level:2, pos:"동사", meaning:"추천하다", family:[], variation:[],
+   ex:"Can you recommend a good book?", exForm:"recommend",
+   quiz:{s:"Our teacher ___ this movie to us last week.", tr:"선생님께서 지난주에 우리에게 이 영화를 추천해 주셨다.", a:["recommended"], note:"last week가 있어 과거형 recommended. m이 두 개라는 점에 주의."}},
+  {word:"manage", level:2, pos:"동사", meaning:"관리하다, 해내다", family:[], variation:[],
+   ex:"I manage my time well during exams.", exForm:"manage",
+   quiz:{s:"She ___ to finish her homework before dinner yesterday.", tr:"그녀는 어제 저녁 먹기 전에 숙제를 끝내 냈다.", a:["managed"], note:"manage to + 동사원형 = (어려운 일을) 해내다. yesterday가 있어 과거형 managed."}},
+  {word:"believe", level:1, pos:"동사", meaning:"믿다", family:[], variation:[],
+   ex:"I believe you can do it.", exForm:"believe",
+   quiz:{s:"Do you ___ in ghosts?", tr:"너는 귀신이 있다고 믿니?", a:["believe"], note:"Do you 뒤에는 동사원형. believe in은 '~의 존재를 믿다'. ie 순서에 주의."}},
+  {word:"catch", level:1, pos:"동사", meaning:"잡다", family:[], variation:[],
+   ex:"I ran to catch the bus.", exForm:"catch",
+   quiz:{s:"Yesterday, he ___ the ball with one hand.", tr:"어제 그는 한 손으로 공을 잡았다.", a:["caught"], note:"catch의 과거형은 불규칙형 caught."}},
+  {word:"add", level:1, pos:"동사", meaning:"더하다, 추가하다", family:[], variation:[],
+   ex:"Add some salt to the soup.", exForm:"Add",
+   quiz:{s:"Can you ___ my name to the list?", tr:"내 이름을 명단에 추가해 줄래?", a:["add"], note:"Can you 뒤 동사원형. add A to B = A를 B에 추가하다."}},
+  // Set 4
+  {word:"adopt", level:2, pos:"동사", meaning:"입양하다, 채택하다", family:[], variation:[],
+   ex:"We adopted a puppy from the animal shelter.", exForm:"adopted",
+   quiz:{s:"Many families ___ pets from animal shelters.", tr:"많은 가족이 동물 보호소에서 반려동물을 입양한다.", a:["adopt"], note:"주어가 복수(Many families)이고 현재의 일반적인 사실이라 adopt 그대로."}},
+  {word:"apply", level:2, pos:"동사", meaning:"지원하다, 적용하다", family:[{w:"applicant", pos:"명사"}], variation:[],
+   ex:"I applied for the school's English camp.", exForm:"applied",
+   quiz:{s:"Each ___ must write a short essay.", tr:"지원자는 각자 짧은 글을 써야 한다.", a:["applicant"], note:"Each 뒤 사람을 나타내는 명사 자리라 applicant."}},
+  {word:"decide", level:1, pos:"동사", meaning:"결정하다", family:[{w:"decision", pos:"명사"}], variation:[],
+   ex:"I decided to join the soccer club.", exForm:"decided",
+   quiz:{s:"It was a hard ___ to make.", tr:"내리기 어려운 결정이었다.", a:["decision"], note:"a hard(형용사) 뒤 명사 자리라 decision. make a decision = 결정을 내리다."}},
+  {word:"suggest", level:2, pos:"동사", meaning:"제안하다", family:[], variation:[],
+   ex:"My friend suggested watching a movie.", exForm:"suggested",
+   quiz:{s:"Who ___ this restaurant last time?", tr:"지난번에 누가 이 식당을 제안했지?", a:["suggested"], note:"last time이 있어 과거형 suggested. gg 철자에 주의."}},
+  {word:"improve", level:2, pos:"동사", meaning:"향상시키다", family:[], variation:[],
+   ex:"I want to improve my English.", exForm:"improve",
+   quiz:{s:"Your English is ___ every day!", tr:"네 영어 실력이 날마다 늘고 있어!", a:["improving"], note:"is + 동사-ing 진행형. e를 빼고 improving."}}
+];
+
+const SET_SIZE = 5;
+const SETS = Array.from({length:Math.ceil(WORDS.length / SET_SIZE)}, (_, k) => WORDS.slice(k * SET_SIZE, k * SET_SIZE + SET_SIZE));
+const setOf = word => Math.floor(WORDS.findIndex(w => w.word === word) / SET_SIZE);
+const LEVELS = {1:{stars:"★", label:"복습 단어"}, 2:{stars:"★★", label:"핵심 단어"}, 3:{stars:"★★★", label:"도전 단어"}};
+
+/* ---------- storage ---------- */
+const KEY = "g1-daily-words-v2";
+const fresh = () => ({wrong:{}, status:{}, solved:0, correct:0});
+let S = fresh();
+try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = t => String(t).trim().toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ");
+const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function lev(a, b){
+  const d = Array.from({length:a.length + 1}, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const ICON = {
+  left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+  speak:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>'
+};
+let toastTimer;
+function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1600); }
+
+/* ---------- text-to-speech: American English ---------- */
+const hasSpeech = "speechSynthesis" in window;
+let usVoice = null;
+function pickVoice(){
+  if (!hasSpeech) return;
+  const us = speechSynthesis.getVoices().filter(v => /^en[-_]US/i.test(v.lang));
+  const prefer = ["Samantha", "Google US English", "Microsoft Aria", "Microsoft Jenny", "Microsoft Guy", "Microsoft Zira", "Microsoft David", "Alex", "Ava", "Allison"];
+  usVoice = prefer.map(n => us.find(v => v.name.includes(n))).find(Boolean) || us.find(v => v.localService) || us[0] || null;
+}
+if (hasSpeech) { pickVoice(); speechSynthesis.addEventListener("voiceschanged", pickVoice); }
+function speak(text){
+  if (!hasSpeech) return;
+  try {
+    if (!usVoice) pickVoice();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US"; if (usVoice) u.voice = usVoice; u.rate = .9;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function addWrong(word, last){
+  const prev = S.wrong[word];
+  S.wrong[word] = {count:(prev ? prev.count : 0) + 1, last};
+  save(); updateDot();
+}
+function updateDot(){ const n = Object.keys(S.wrong).length; const d = $("reviewDot"); d.textContent = n; d.classList.toggle("on", n > 0); }
+
+/* =========================================================
+   TABS + LIQUID-GLASS LENS + SWIPE
+   ========================================================= */
+const track = $("track"), lens = $("lens"), tabbar = $("tabbar"), viewport = $("viewport");
+const tabs = [$("tab0"), $("tab1"), $("tab2")], panes = [$("pane0"), $("pane1"), $("pane2")];
+let tab = 0;
+function setTab(i){
+  i = Math.max(0, Math.min(2, i));
+  const changed = i !== tab; tab = i;
+  track.classList.remove("dragging");
+  track.style.transform = "translateX(" + (-i * 100 / 3) + "%)";
+  lens.classList.remove("dragging");
+  lens.style.transform = "translateX(" + (i * 100) + "%)";
+  tabs.forEach((t, k) => { t.setAttribute("aria-selected", k === i); t.tabIndex = k === i ? 0 : -1; });
+  panes.forEach((p, k) => { p.inert = k !== i; });
+  if (i === 0 && changed) renderFlash();
+  if (i === 2) renderReview();
+  if (i === 1 && Q.view === "play" && !Q.answered && matchMedia("(pointer:fine)").matches) setTimeout(() => { const a = $("ans"); if (a) a.focus({preventScroll:true}); }, 300);
+}
+tabs.forEach((t, k) => t.addEventListener("click", () => setTab(k)));
+
+// drag the lens along the tab bar, or tap a tab
+let lensDrag = null;
+tabbar.addEventListener("pointerdown", e => {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  lensDrag = {x0:e.clientX, r:tabbar.getBoundingClientRect(), moved:false, pos:0};
+  tabbar.setPointerCapture(e.pointerId);
+});
+tabbar.addEventListener("pointermove", e => {
+  if (!lensDrag) return;
+  const w = (lensDrag.r.width - 12) / 3;
+  if (!lensDrag.moved && Math.abs(e.clientX - lensDrag.x0) > 6) { lensDrag.moved = true; lens.classList.add("dragging"); }
+  if (lensDrag.moved) {
+    lensDrag.pos = Math.max(0, Math.min(2 * w, e.clientX - lensDrag.r.left - 6 - w / 2));
+    lens.style.transform = "translateX(" + lensDrag.pos + "px) scale(1.08)";
+  }
+});
+tabbar.addEventListener("pointerup", e => {
+  if (!lensDrag) return;
+  const w = (lensDrag.r.width - 12) / 3;
+  const idx = lensDrag.moved ? Math.round(lensDrag.pos / w) : Math.floor((e.clientX - lensDrag.r.left - 6) / w);
+  lensDrag = null; setTab(idx);
+});
+tabbar.addEventListener("pointercancel", () => { lensDrag = null; setTab(tab); });
+
+// swipe the content left and right to change menus (the flashcard has its own swipe)
+let sw = null, suppressClick = false;
+viewport.addEventListener("pointerdown", e => {
+  if (e.target.closest("input, #stage")) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  sw = {x0:e.clientX, y0:e.clientY, dx:0, active:false, id:e.pointerId, w:viewport.clientWidth};
+});
+viewport.addEventListener("pointermove", e => {
+  if (!sw) return;
+  const dx = e.clientX - sw.x0, dy = e.clientY - sw.y0;
+  if (!sw.active) {
+    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      sw.active = true; try { viewport.setPointerCapture(sw.id); } catch (err) {}
+      track.classList.add("dragging");
+    } else if (Math.abs(dy) > 12) { sw = null; return; } else return;
+  }
+  let d = dx;
+  if ((tab === 0 && d > 0) || (tab === 2 && d < 0)) d *= .3;
+  sw.dx = d;
+  track.style.transform = "translateX(calc(" + (-tab * 100 / 3) + "% + " + d + "px))";
+});
+function endSwipe(){
+  if (!sw) return;
+  if (sw.active) {
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 0);
+    setTab(sw.dx < -sw.w * .18 ? tab + 1 : sw.dx > sw.w * .18 ? tab - 1 : tab);
+  }
+  sw = null;
+}
+viewport.addEventListener("pointerup", endSwipe);
+viewport.addEventListener("pointercancel", endSwipe);
+viewport.addEventListener("click", e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+// keyboard: arrows move cards while studying, otherwise change menus
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input")) return;
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  const dir = e.key === "ArrowRight" ? 1 : -1;
+  if (tab === 0 && FC.view === "study") { dir > 0 ? cardNext() : cardPrev(); return; }
+  setTab(tab + dir);
+});
+
+/* ---------- dynamic lighting on glass controls (not on flashcards) ---------- */
+let hotEl = null, touchTimer;
+function light(e){
+  const el = e.target.closest ? e.target.closest(".glow") : null;
+  if (hotEl && hotEl !== el) hotEl.classList.remove("hot");
+  if (el) {
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--mx", (e.clientX - r.left) + "px");
+    el.style.setProperty("--my", (e.clientY - r.top) + "px");
+    el.classList.add("hot");
+  }
+  hotEl = el;
+}
+document.addEventListener("pointermove", light, {passive:true});
+document.addEventListener("pointerdown", e => { light(e); clearTimeout(touchTimer); }, {passive:true});
+document.addEventListener("pointerup", e => {
+  if (e.pointerType !== "mouse") touchTimer = setTimeout(() => { if (hotEl) { hotEl.classList.remove("hot"); hotEl = null; } }, 450);
+});
+document.documentElement.addEventListener("pointerleave", () => { if (hotEl) { hotEl.classList.remove("hot"); hotEl = null; } });
+
+/* =========================================================
+   1) FLASHCARDS — 4 sets of 5 words
+   ========================================================= */
+const FC = {view:"sets", set:0, i:0, flipped:false};
+let peeked = false;
+function badge(w){ const L = LEVELS[w.level]; return '<span class="badge"><span class="stars">' + L.stars + '</span>' + L.label + '</span>'; }
+function knownIn(k){ return SETS[k].filter(w => S.status[w.word] === "know").length; }
+
+function renderFlash(dir){
+  if (FC.view === "sets") renderSets();
+  else if (FC.view === "study") renderStudy(dir || 0);
+  else renderSetDone();
+}
+
+function renderSets(){
+  $("flashBody").innerHTML =
+    '<div class="sec-title">단어 카드 · 5개씩 4세트</div>' +
+    '<div class="set-list">' + SETS.map((ws, k) => {
+      const kn = knownIn(k);
+      return '<button class="set-item surface glow press" data-set="' + k + '">' +
+        '<div class="set-head"><b>Set ' + (k + 1) + '</b><span>알아요 ' + kn + ' / ' + ws.length + '</span></div>' +
+        '<div class="set-words">' + ws.map(w => esc(w.word)).join(" · ") + '</div>' +
+        '<div class="mini-bar"><i style="width:' + (kn / ws.length * 100) + '%"></i></div>' +
+      '</button>';
+    }).join("") + '</div>';
+}
+
+function startSet(k, i){
+  FC.view = "study"; FC.set = k; FC.i = i || 0; FC.flipped = false;
+  renderFlash(0);
+}
+
+function renderStudy(dir){
+  const ws = SETS[FC.set], w = ws[FC.i];
+  const tags = [];
+  if (w.family.length) tags.push('<span class="chip"><small>단어 가족</small>' + w.family.map(f => esc(f.w)).join(", ") + '</span>');
+  if (w.variation.length) tags.push('<span class="chip"><small>다른 철자</small>' + w.variation.map(esc).join(", ") + '</span>');
+  const exHtml = esc(w.ex).replace(new RegExp("\\b(" + w.exForm + ")\\b"), "<mark>$1</mark>");
+  let extra = "";
+  if (w.family.length) extra += '<div class="label">단어 가족 (Word family)</div><div class="chips">' +
+    w.family.map(f => '<span class="chip">' + esc(f.w) + '<small>' + esc(f.pos) + '</small></span>').join("") + '</div>';
+  if (w.variation.length) extra += '<div class="label">다른 철자 (Variation)</div><div class="chips">' +
+    '<span class="chip">' + esc(w.word) + '<small>미국식</small></span>' +
+    w.variation.map(v => '<span class="chip">' + esc(v) + '<small>영국식</small></span>').join("") + '</div>';
+  if (!extra) extra = '<div class="label">단어 가족 · 다른 철자</div><div class="none">목록에 함께 실린 형태가 없는 단어예요.</div>';
+
+  $("flashBody").innerHTML =
+    '<div class="study-top">' +
+      '<button class="icon-btn glass glow press" data-act="toSets" aria-label="세트 목록으로">' + ICON.left + '</button>' +
+      '<div class="study-title"><b>Set ' + (FC.set + 1) + '</b><span>' + (FC.i + 1) + ' / ' + ws.length + '</span></div>' +
+      '<span class="icon-spacer"></span>' +
+    '</div>' +
+    '<div class="dots" aria-hidden="true">' + ws.map((x, k) => '<i class="' + (k === FC.i ? "on " : "") + (S.status[x.word] || "") + '"></i>').join("") + '</div>' +
+    '<div class="stage-wrap">' +
+      '<span class="edge left' + (FC.i === 0 ? " off" : "") + '" aria-hidden="true">' + ICON.left + '</span>' +
+      '<div class="stage" id="stage">' +
+        '<div class="flashcard' + (FC.flipped ? " flipped" : "") + '" id="card" tabindex="0" role="button" aria-label="단어 카드 뒤집기. 좌우 화살표 키로 넘기기">' +
+          '<div class="face front surface">' +
+            badge(w) +
+            '<div class="word">' + esc(w.word) + '</div>' +
+            '<div class="pos">' + esc(w.pos) + '</div>' +
+            (tags.length ? '<div class="front-tags">' + tags.join("") + '</div>' : '') +
+            (hasSpeech ? '<button class="speak press" data-speak="' + esc(w.word) + '" aria-label="발음 듣기">' + ICON.speak + '</button>' : '') +
+            '<div class="hint">눌러서 뜻과 예문 보기</div>' +
+          '</div>' +
+          '<div class="face back surface">' +
+            badge(w) +
+            '<div class="meaning">' + esc(w.meaning) + '</div>' +
+            '<div class="sub">' + esc(w.word) + ' · ' + esc(w.pos) + '</div>' +
+            '<div class="label">예문</div><p class="ex">' + exHtml + '</p>' + extra +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<span class="edge right" aria-hidden="true">' + ICON.right + '</span>' +
+    '</div>' +
+    '<div class="duo study-actions">' +
+      '<button class="btn glass glow press" data-act="dont">모르겠어요</button>' +
+      '<button class="btn primary press" data-act="know">알아요</button>' +
+    '</div>';
+  bindCard();
+  const stage = $("stage");
+  if (!reduceMotion && dir) stage.animate([{opacity:0, transform:"translateX(" + (dir * 40) + "px)"}, {opacity:1, transform:"none"}], {duration:260, easing:"ease-out"});
+  if (!reduceMotion && !peeked) {
+    peeked = true;
+    stage.animate([{transform:"none"}, {transform:"translateX(-26px) rotate(-1.5deg)"}, {transform:"none"}], {duration:800, delay:450, easing:"ease-in-out"});
+  }
+}
+
+function bindCard(){
+  const stage = $("stage"), card = $("card");
+  let d = null, dragged = false;
+  stage.addEventListener("pointerdown", e => {
+    if (e.target.closest("[data-speak]")) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    d = {x0:e.clientX, y0:e.clientY, dx:0, active:false, id:e.pointerId}; dragged = false;
+  });
+  stage.addEventListener("pointermove", e => {
+    if (!d) return;
+    const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+    if (!d.active) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        d.active = true; dragged = true;
+        try { stage.setPointerCapture(d.id); } catch (err) {}
+        stage.classList.add("dragging");
+      } else if (Math.abs(dy) > 10) { d = null; return; } else return;
+    }
+    let x = dx; if (FC.i === 0 && x > 0) x *= .3;
+    d.dx = x;
+    stage.style.transform = "translateX(" + x + "px) rotate(" + (x / 28) + "deg)";
+  });
+  const end = () => {
+    if (!d) return;
+    const was = d.active, dx = d.dx; d = null;
+    stage.classList.remove("dragging");
+    if (!was) return;
+    const lim = stage.offsetWidth * .22;
+    if (dx < -lim) cardNext();
+    else if (dx > lim && FC.i > 0) cardPrev();
+    else stage.style.transform = "";
+  };
+  stage.addEventListener("pointerup", end);
+  stage.addEventListener("pointercancel", end);
+  card.addEventListener("click", e => {
+    if (dragged) { dragged = false; return; }
+    const sp = e.target.closest("[data-speak]");
+    if (sp) { e.stopPropagation(); speak(sp.dataset.speak); return; }
+    flip();
+  });
+  card.addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === " ") && !e.target.closest("[data-speak]")) { e.preventDefault(); flip(); }
+  });
+}
+function flip(){ FC.flipped = !FC.flipped; const c = $("card"); if (c) c.classList.toggle("flipped", FC.flipped); }
+
+let moving = false;
+function moveCard(dir){
+  if (moving) return;
+  const stage = $("stage");
+  const go = () => {
+    moving = false; FC.flipped = false;
+    FC.i += dir;
+    if (FC.i >= SETS[FC.set].length) { FC.view = "done"; renderFlash(); }
+    else renderFlash(dir);
+  };
+  if (reduceMotion || !stage) { go(); return; }
+  moving = true;
+  stage.classList.remove("dragging");
+  stage.style.transform = "translateX(" + (-dir * 120) + "%) rotate(" + (-dir * 8) + "deg)";
+  stage.style.opacity = "0";
+  setTimeout(go, 220);
+}
+function cardNext(){ if (FC.view === "study") moveCard(1); }
+function cardPrev(){ if (FC.view === "study" && FC.i > 0) moveCard(-1); }
+
+function renderSetDone(){
+  const ws = SETS[FC.set], kn = knownIn(FC.set), last = FC.set === SETS.length - 1;
+  $("flashBody").innerHTML =
+    '<div class="sec-title">Set ' + (FC.set + 1) + ' 학습 완료</div>' +
+    '<div class="surface done">' +
+      '<div class="done-score"><b>' + kn + '</b><span> / ' + ws.length + '</span><p>알아요로 표시한 단어</p></div>' +
+      '<div class="rows">' + ws.map(w => {
+        const st = S.status[w.word];
+        const tag = st === "know" ? '<span class="tag know">알아요</span>' : st === "dont" ? '<span class="tag dont">모르겠어요</span>' : '<span class="tag none">넘김</span>';
+        return '<div class="row"><div><div class="w">' + esc(w.word) + '</div><div class="m">' + esc(w.meaning) + '</div></div>' + tag + '</div>';
+      }).join("") + '</div>' +
+      '<div class="stack">' +
+        (last
+          ? '<button class="btn primary full press" data-act="toQuiz">빈칸 퀴즈 풀러 가기</button>'
+          : '<button class="btn primary full press" data-act="nextSet">다음 세트 학습</button>') +
+        '<button class="btn glass glow full press" data-act="again">이 세트 다시 학습</button>' +
+      '</div>' +
+      '<button class="link" data-act="toSets">세트 목록으로</button>' +
+    '</div>';
+}
+
+$("flashBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-act],[data-set]"); if (!b) return;
+  if (b.dataset.set != null) { startSet(+b.dataset.set, 0); return; }
+  const act = b.dataset.act, w = FC.view === "study" ? SETS[FC.set][FC.i] : null;
+  if (act === "know") { S.status[w.word] = "know"; save(); cardNext(); }
+  else if (act === "dont") {
+    S.status[w.word] = "dont"; addWrong(w.word, {src:"card"});
+    toast("'" + w.word + "'를 복습 목록에 담았어요"); cardNext();
+  }
+  else if (act === "toSets") { FC.view = "sets"; renderFlash(); }
+  else if (act === "again") startSet(FC.set, 0);
+  else if (act === "nextSet") startSet(FC.set + 1, 0);
+  else if (act === "toQuiz") { FC.view = "sets"; renderFlash(); setTab(1); }
+});
+
+/* =========================================================
+   2) FILL-IN-THE-BLANK QUIZ — start button, all 20 shuffled
+   ========================================================= */
+let Q = {view:"intro", mode:"normal", items:[], i:0, answered:false, score:0, hint:false, log:[]};
+function startQuiz(mode){
+  let pool;
+  if (mode === "review") {
+    pool = WORDS.filter(w => S.wrong[w.word]);
+    if (!pool.length) { toast("복습할 단어가 아직 없어요"); return false; }
+  } else pool = WORDS;
+  Q = {view:"play", mode, items:shuffle(pool), i:0, answered:false, score:0, hint:false, log:[]};
+  renderQuiz(); return true;
+}
+function hintText(w){ const a = w.quiz.a[0]; return norm(a) === norm(w.word) ? "첫 글자 " + a[0] : "첫 글자 " + a[0] + " · 기본형 " + w.word; }
+function fullSentence(w){ return w.quiz.s.replace("___", w.quiz.a[0]); }
+
+function renderQuiz(){
+  const body = $("quizBody");
+  if (Q.view === "intro") {
+    body.innerHTML =
+      '<div class="sec-title">빈칸 퀴즈</div>' +
+      '<div class="surface intro">' +
+        '<div class="big">빈칸 채우기</div>' +
+        '<p>문장과 해석을 보고 빈칸에 알맞은 단어를<br>문맥에 맞는 형태로 직접 입력해요.</p>' +
+        '<div class="facts"><span class="chip">' + WORDS.length + '문제</span><span class="chip">매번 순서가 바뀌어요</span><span class="chip">문장 듣기</span></div>' +
+        '<button class="btn primary full press" data-act="start">시작하기</button>' +
+      '</div>';
+    return;
+  }
+  if (Q.view === "done") {
+    const n = Q.items.length, r = Q.score / n, wrongs = Q.log.filter(x => !x.ok);
+    const msg = r === 1 ? "모두 맞혔어요! 다음에 다시 풀어도 기억나는지 확인해 봐요." :
+                r >= .7 ? "잘했어요! 틀린 단어는 복습 탭에 모아 두었어요." :
+                          "괜찮아요. 복습 탭에서 틀린 단어를 다시 떠올려 봐요.";
+    body.innerHTML =
+      '<div class="sec-title">' + (Q.mode === "review" ? "복습 퀴즈 결과" : "빈칸 퀴즈 결과") + '</div>' +
+      '<div class="surface result">' +
+        '<div class="score">' + Q.score + '<span> / ' + n + '</span></div>' +
+        '<p>' + msg + '</p>' +
+        (wrongs.length ? '<div class="label">틀린 문제</div><div class="rows">' + wrongs.map(x =>
+          '<div class="row"><div><div class="w">' + esc(x.w.word) + '</div><div class="m">내 답 <s>' + esc(x.input) + '</s> → 정답 ' + esc(x.w.quiz.a[0]) + '</div></div></div>').join("") + '</div>' : '') +
+        '<div class="stack">' +
+          '<button class="btn primary full press" data-act="start">다시 풀기</button>' +
+          (wrongs.length ? '<button class="btn glass glow full press" data-act="toReview">복습 탭으로</button>' : '') +
+        '</div>' +
+        '<button class="link" data-act="intro">처음 화면으로</button>' +
+      '</div>';
+    return;
+  }
+  const w = Q.items[Q.i], q = w.quiz, n = Q.items.length;
+  body.innerHTML =
+    '<div class="sec-title">' + (Q.mode === "review" ? "복습 퀴즈 · 틀린 단어 다시 풀기" : "빈칸 퀴즈") + '</div>' +
+    '<div class="progress glass" role="progressbar" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + Q.i + '"><div class="bar" style="width:' + (Q.i / n * 100) + '%"></div></div>' +
+    '<div class="surface q-card">' +
+      '<div class="q-meta"><span>' + (Q.i + 1) + ' / ' + n + '</span><button data-act="quit">그만하기</button></div>' +
+      '<p class="q-sentence">' + esc(q.s).replace("___", '<span class="blank" id="blank">&nbsp;</span>') + '</p>' +
+      '<p class="q-trans">' + esc(q.tr) + '</p>' +
+      '<div class="chips">' +
+        '<span class="chip ghost">' + q.a[0].length + '글자</span>' +
+        '<button class="chip ghost press" data-act="hint">' + (Q.hint ? esc(hintText(w)) : "힌트 보기") + '</button>' +
+      '</div>' +
+      '<div class="answer-row">' +
+        '<input class="input" id="ans" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="빈칸에 들어갈 단어" enterkeyhint="done" aria-label="정답 입력">' +
+        '<button class="btn primary press" id="checkBtn" data-act="check">확인</button>' +
+      '</div>' +
+      '<div class="feedback" id="fb" role="status" aria-live="polite"></div>' +
+    '</div>';
+  const input = $("ans");
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); Q.answered ? nextQ() : check(); } });
+  if (matchMedia("(pointer:fine)").matches && tab === 1) input.focus({preventScroll:true});
+}
+
+function check(){
+  const w = Q.items[Q.i], q = w.quiz, input = $("ans"), raw = input.value, ans = norm(raw);
+  if (!ans) { input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake"); input.focus(); return; }
+  const ok = q.a.map(norm).includes(ans);
+  Q.answered = true; S.solved++;
+  Q.log.push({w, input:raw.trim(), ok});
+  const fb = $("fb"), bl = $("blank");
+  input.disabled = true;
+  const sentence = '<div class="fb-line"><p>' + esc(q.s).replace("___", "<b>" + esc(q.a[0]) + "</b>") + '</p>' +
+    (hasSpeech ? '<button class="say press" data-act="say" aria-label="문장 전체 듣기">' + ICON.speak + '</button>' : '') + '</div>';
+  if (ok) {
+    Q.score++; S.correct++;
+    if (Q.mode === "review") delete S.wrong[w.word];
+    input.classList.add("good"); bl.classList.add("good"); bl.textContent = raw.trim();
+    fb.className = "feedback good show";
+    fb.innerHTML = '<div class="fb-title">정답이에요!</div>' + sentence + '<div class="fb-note">' + esc(q.note) + '</div>';
+  } else {
+    const forms = [w.word].concat(w.family.map(f => f.w), w.variation).map(norm);
+    const title = forms.includes(ans) ? "단어는 맞았어요! 형태를 바꿔 볼까요?" :
+                  lev(ans, norm(q.a[0])) <= 2 ? "아깝다! 철자를 확인해 봐요" : "아쉬워요, 다시 익혀 봐요";
+    addWrong(w.word, {src:"quiz", input:raw.trim(), answer:q.a[0]});
+    input.classList.add("bad"); bl.classList.add("bad"); bl.textContent = q.a[0];
+    fb.className = "feedback bad show";
+    fb.innerHTML = '<div class="fb-title">' + title + '</div>' + sentence +
+      '<div class="fb-note">정답: <b>' + esc(q.a.join(" / ")) + '</b><br>' + esc(q.note) + '</div>';
+  }
+  save(); updateDot();
+  const btn = $("checkBtn");
+  btn.dataset.act = "next";
+  btn.textContent = Q.i === Q.items.length - 1 ? "결과 보기" : "다음";
+  btn.focus({preventScroll:true});
+}
+function nextQ(){
+  if (Q.i >= Q.items.length - 1) Q.view = "done"; else { Q.i++; Q.answered = false; Q.hint = false; }
+  renderQuiz();
+  $("pane1").scrollTop = 0;
+}
+$("quizBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act;
+  if (act === "start") startQuiz("normal");
+  else if (act === "check") check();
+  else if (act === "next") nextQ();
+  else if (act === "say") speak(fullSentence(Q.items[Q.i]));
+  else if (act === "hint") { Q.hint = true; b.textContent = hintText(Q.items[Q.i]); }
+  else if (act === "quit" || act === "intro") { Q.view = "intro"; renderQuiz(); }
+  else if (act === "toReview") setTab(2);
+});
+
+/* =========================================================
+   3) REVIEW TAB (wrong-word collection)
+   ========================================================= */
+function renderReview(){
+  const entries = Object.entries(S.wrong).sort((a, b) => b[1].count - a[1].count);
+  const rate = S.solved ? Math.round(S.correct / S.solved * 100) + "%" : "-";
+  let html =
+    '<div class="sec-title">복습 · 내가 모르는 단어를 한눈에</div>' +
+    '<div class="stats glass glow">' +
+      '<div><b>' + S.solved + '</b><span>푼 문제</span></div>' +
+      '<div><b>' + rate + '</b><span>정답률</span></div>' +
+      '<div><b>' + entries.length + '</b><span>복습 단어</span></div>' +
+    '</div>' +
+    '<div style="margin-top:12px"><button class="btn primary full press" data-act="reviewQuiz"' + (entries.length ? "" : " disabled") + '>틀린 단어 다시 풀기</button></div>';
+  if (!entries.length) {
+    html += '<div class="empty surface">아직 복습할 단어가 없어요.<br>퀴즈에서 틀리거나 카드에서 \'모르겠어요\'를 누르면 여기에 모여요.</div>';
+  } else {
+    html += '<div class="list">' + entries.map(([word, info]) => {
+      const w = WORDS.find(x => x.word === word); if (!w) return "";
+      const detail = info.last && info.last.src === "quiz"
+        ? '내 답 <s>' + esc(info.last.input) + '</s> → 정답 <b>' + esc(info.last.answer) + '</b>'
+        : "단어 카드에서 '모르겠어요'를 눌렀어요";
+      return '<button class="item surface glow press" data-word="' + esc(word) + '">' +
+        '<div><div class="w">' + esc(word) + '<small>Set ' + (setOf(word) + 1) + ' · ' + LEVELS[w.level].stars + '</small></div>' +
+        '<div class="m">' + esc(w.meaning) + '</div><div class="d">' + detail + '</div></div>' +
+        '<span class="count">×' + info.count + '</span></button>';
+    }).join("") + '</div>' +
+    '<button class="link" data-act="clear">목록 비우기</button>';
+  }
+  $("reviewBody").innerHTML = html;
+}
+$("reviewBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-act],[data-word]"); if (!b) return;
+  if (b.dataset.word) {
+    const idx = WORDS.findIndex(w => w.word === b.dataset.word);
+    FC.view = "study"; FC.set = Math.floor(idx / SET_SIZE); FC.i = idx % SET_SIZE; FC.flipped = false;
+    renderFlash(); setTab(0); return;
+  }
+  if (b.dataset.act === "reviewQuiz") { if (startQuiz("review")) setTab(1); }
+  if (b.dataset.act === "clear" && confirm("복습 목록을 모두 비울까요?")) { S.wrong = {}; save(); updateDot(); renderReview(); }
+});
+
+/* ---------- start ---------- */
+renderFlash(); renderQuiz(); renderReview(); updateDot(); setTab(0);
+</script>
+</body>
+</html>
+
